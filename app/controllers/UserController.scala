@@ -17,6 +17,8 @@ import scala.concurrent.Future
 
 object UserController {
 
+  private val AUTO_INCREMENT_COLUMN_DUMMY_VALUE = 0
+
   case class UserForm(id: Option[Long], name: String, companyId: Option[Int])
 
   val userForm = Form(
@@ -58,9 +60,37 @@ class UserController @Inject()(val dbConfigProvider: DatabaseConfigProvider,
     }
   }
 
-  def create = TODO
+  def create = Action.async { implicit rs =>
+    userForm.bindFromRequest.fold(
+      error => {
+        db.run(Companies.sortBy(_.id).result).map { companies =>
+          BadRequest(views.html.user.edit(error, companies))
+        }
+      },
+      form => {
+        val user = UsersRow(AUTO_INCREMENT_COLUMN_DUMMY_VALUE, form.name, form.companyId)
+        db.run(Users += user).map { _ =>
+          Redirect(routes.UserController.list)
+        }
+      }
+    )
+  }
 
-  def update = TODO
+  def update = Action.async { implicit rs =>
+    userForm.bindFromRequest.fold(
+      error => {
+        db.run(Companies.sortBy(_.id).result).map { companies =>
+          BadRequest(views.html.user.edit(error, companies))
+        }
+      },
+      form => {
+        val user = UsersRow(form.id.get, form.name, form.companyId)
+        db.run(Users.filter(t => t.id === form.id.bind).update(user)).map { _ =>
+          Redirect(routes.UserController.list)
+        }
+      }
+    )
+  }
 
   def remove(id: Long) = TODO
 
